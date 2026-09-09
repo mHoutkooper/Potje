@@ -133,13 +133,14 @@ async function loadDataAndRender(){await loadData();render()}
 
 function spent(){return expenses.reduce((s,e)=>s+Number(e.amount),0)}
 function contributed(){return members.reduce((s,m)=>s+Number(m.paid_amount||0),0)}
-function balance(){return contributed()-spent()}
+function refunded(){return members.reduce((s,m)=>s+Number(m.refund_amount||0),0)}
+function balance(){return contributed()-spent()-refunded()}
 function allPaid(){return members.length>0&&members.every(m=>m.paid)}
 function memberAmount(){return Number(pot?.amount_per_person||0)}
 function roundAmount(){return Number(pot?.round_amount_per_person||pot?.amount_per_person||0)}
 function targetTotal(){return members.length*memberAmount()}
 async function syncPotTotal(){
-  if(!pot||!pot.amount_per_person)return;
+  if(!pot||!pot.amount_per_person||pot.closed)return;
   const total=(members.length*Number(pot.amount_per_person)).toFixed(2);
   pot.total_amount=Number(total);
   const {error}=await sb.from("pots").update({total_amount:Number(total)}).eq("id",pot.id);
@@ -169,6 +170,7 @@ function renderWelcome(msg){
 
 function renderPot(){
   document.getElementById("app").innerHTML=`
+  ${pot.closed?`<div class="notice success">🏁 Deze pot is afgerond. Het resterende saldo is terugbetaald.</div>`:''}
   <section class="card">
     <div class="row"><h2>Deelnemers</h2><span>${members.filter(m=>m.paid).length}/${members.length} betaald</span></div>
     ${members.map(m=>`
@@ -182,7 +184,7 @@ function renderPot(){
       ? `<div class="notice success">✅ Iedereen heeft gestort. Er is ${euro(balance())} beschikbaar.</div>`
       : `<div class="notice">⚠️ De pot is leeg. Als er nog een betaling moet komen, kun je bijstorten.</div>`)
     : `<div class="notice">⏳ Betalen kan zodra iedereen heeft gestort.</div>`}
-  <button class="btn primary full ${allPaid()&&balance()>0?'':'disabled'}" ${allPaid()&&balance()>0?'':'disabled'} onclick="addExpense()">BETALEN</button>
+  <button class="btn primary full ${!pot.closed&&allPaid()&&balance()>0?'':'disabled'}" ${!pot.closed&&allPaid()&&balance()>0?'':'disabled'} onclick="addExpense()">BETALEN</button>
   <section class="card">
     <h2>Snelle acties</h2>
     <div class="formgrid">
@@ -216,6 +218,7 @@ function renderOverzicht(){
     <div class="row" style="margin-top:10px"><span>Deelnemers</span><strong>${members.length}</strong></div>
     <div class="row" style="margin-top:10px"><span>Doelbedrag</span><strong>${euro(targetTotal())}</strong></div>
     <div class="row" style="margin-top:10px"><span>Werkelijk ingelegd</span><strong>${euro(contributed())}</strong></div>
+    <div class="row" style="margin-top:10px"><span>Terugbetaald</span><strong>${euro(refunded())}</strong></div>
     <div class="row" style="margin-top:10px"><span>Uitgegeven</span><strong>${euro(spent())}</strong></div>
     <hr>
     <div class="row"><span>Beschikbaar</span><strong>${euro(balance())}</strong></div>
@@ -243,6 +246,7 @@ function showTab(tab,btn){
 }
 
 async function addMember(){
+  if(pot?.closed)return alert("Deze pot is al afgerond.");
   open(`<h2>Lid toevoegen</h2>
     <input id="memberName" placeholder="Naam">
     <button class="btn primary full" onclick="confirmMember()">Toevoegen</button>
@@ -274,6 +278,7 @@ async function togglePaid(id,old){
   if(error)alert("Storting registreren mislukt: "+error.message);
 }
 async function requestTopUp(){
+  if(pot?.closed)return alert("Deze pot is al afgerond.");
   if(!members.length)return;
   const needed=prompt("Hoeveel wil je extra in de pot hebben?\nHet bedrag wordt eerlijk over alle deelnemers verdeeld.", "50");
   if(needed===null)return;
@@ -306,18 +311,35 @@ function finishPot(){
     <button class="btn secondary full" style="margin-top:8px" onclick="closeModal()">Annuleren</button></div>`);
 }
 async function confirmFinish(){
-  const remaining=balance();
+  const remaining=Number(balance().toFixed(2));
   if(remaining<0)return alert("De pot staat negatief.");
+  if(remaining===0)return alert("De pot is al leeg.");
+  if(!members.length)return alert("Er zijn geen deelnemers.");
   const each=Math.floor((remaining/members.length)*100)/100;
   const distributed=Number((each*members.length).toFixed(2));
   const rest=Number((remaining-distributed).toFixed(2));
-  const lines=members.map((m,i)=>`${esc(m.name)}: ${euro(each+(i===0?rest:0))}`).join("<br>");
-  open(`<div class="center"><h2>Terugbetaling klaar</h2>
+  const refunds=members.map((m,i)=>Number((each+(i===0?rest:0)).toFixed(2)));
+
+  for(let i=0;i<members.length;i++){
+    const current=Number(members[i].refund_amount||0);
+    const {error}=await sb.from("members").update({refund_amount:Number((current+refunds[i]).toFixed(2))}).eq("id",members[i].id);
+    if(error)return alert("Terugbetaling opslaan mislukt: "+error.message);
+  }
+
+  const {error:pe}=await sb.from("pots").update({closed:true,total_amount:0}).eq("id",pot.id);
+  if(pe)return alert("Pot afsluiten mislukt: "+pe.message);
+
+  await loadData();
+  render();
+  const lines=members.map((m,i)=>`${esc(m.name)}: ${euro(refunds[i])}`).join("<br>");
+  open(`<div class="center"><h2>Terugbetaling klaar 🎉</h2>
     <p>${lines}</p>
-    <p class="small">Rondingsverschil van maximaal €0,01 wordt aan één deelnemer toegevoegd.</p>
+    <p><strong>${euro(remaining)}</strong> is volledig verdeeld.</p>
+    <p class="small">Rondingsverschil van maximaal €0,01 is aan één deelnemer toegevoegd.</p>
     <button class="btn secondary full" onclick="closeModal()">Sluiten</button></div>`);
 }
 async function addExpense(){
+  if(pot?.closed)return alert("Deze pot is al afgerond.");
   if(!allPaid())return;
   if(balance()<=0)return alert("Er staat niets meer in de pot.");
   open(`<h2>Betaling uit de pot</h2>
