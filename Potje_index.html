@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#111">
+<title>Potje</title>
+<style>*{box-sizing:border-box}body{margin:0;background:#f2f2f7;color:#111;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.app{max-width:430px;margin:auto;min-height:100vh;background:#fff;padding-bottom:90px}header{background:#111;color:#fff;padding:30px 20px 24px;border-radius:0 0 24px 24px}.eyebrow{font-size:12px;color:#aaa;font-weight:700;letter-spacing:1px}h1{font-size:25px;margin:5px 0}.balance{font-size:42px;font-weight:800;margin:12px 0 0}.sub,.muted{color:#777}.sub{color:#aaa;font-size:14px}main{padding:20px}.screen{display:none}.screen.active{display:block}h2{margin:0 0 5px}.card{background:#f7f7f9;border-radius:18px;padding:16px;margin:16px 0}.row{display:flex;justify-content:space-between;align-items:center;gap:12px}.person{padding:13px 0;border-bottom:1px solid #ddd}.person:last-child{border-bottom:0}.status{font-size:12px;padding:5px 9px;border-radius:10px;background:#dff7e7;color:#16733a}.wait{background:#fff0cc;color:#805d00}.notice{background:#fff3cd;padding:13px;border-radius:14px;margin:15px 0}.primary{width:100%;border:0;border-radius:14px;background:#111;color:#fff;padding:15px;font-size:16px;font-weight:700}input,select{width:100%;padding:14px;margin:7px 0 15px;border:1px solid #ddd;border-radius:12px;font-size:16px}label{font-weight:600;font-size:14px}nav{position:fixed;bottom:0;left:0;right:0;max-width:430px;margin:auto;background:#fff;border-top:1px solid #ddd;display:flex;justify-content:space-around;padding:8px 3px calc(8px + env(safe-area-inset-bottom));z-index:5}nav button{border:0;background:none;color:#777;font-size:11px;padding:5px}nav button.active{color:#111;font-weight:700}nav span{display:block;margin-top:3px}</style>
+<link rel="manifest" href="manifest.json">
+</head>
+<body>
+<div class="app">
+<header><div class="eyebrow">GROEPSPOT</div><h1 id="groupName">Avondje weg</h1><div id="balance" class="balance">€0,00</div><div class="sub">beschikbaar in de pot</div></header>
+<main>
+<section id="pot" class="screen active">
+<div class="card"><div class="row"><b>Deelnemers</b><span id="paidCount"></span></div><div id="members"></div></div>
+<div id="lock" class="notice">⏳ Betalen kan zodra iedereen heeft gestort.</div>
+<button id="payBtn" class="primary">BETALEN</button>
+</section>
+
+<section id="leden" class="screen">
+<h2>Deelnemers</h2><p class="muted">Nodig mensen uit via WhatsApp.</p>
+<div id="memberList" class="card"></div>
+<button id="inviteBtn" class="primary">Uitnodigen via WhatsApp</button>
+</section>
+
+<section id="overzicht" class="screen">
+<h2>Overzicht</h2><p class="muted">Alle betalingen uit de pot.</p>
+<div id="payments" class="card"></div>
+</section>
+
+<section id="nieuw" class="screen">
+<h2>Nieuwe groep</h2>
+<label>Naam van het uitje</label><input id="nameInput" placeholder="Bijv. Weekend Antwerpen">
+<label>Bedrag per persoon</label><input id="amountInput" type="number" min="1" step=".01" value="75">
+<label>Wie mag betalen?</label><select id="modeInput"><option value="all">Iedereen</option><option value="one">Alleen aangewezen persoon</option></select>
+<label>Deelnemers</label><input id="membersInput" placeholder="Marco, Jan, Lisa, Peter">
+<button id="createBtn" class="primary">Groep aanmaken</button>
+</section>
+
+<section id="afsluiten" class="screen">
+<h2>Uitje beëindigen</h2><p class="muted">Het resterende bedrag wordt naar rato verdeeld.</p>
+<div id="refunds" class="card"></div>
+<button id="closeBtn" class="primary">Terugbetaling berekenen</button>
+</section>
+</main>
+<nav>
+<button data-screen="pot" class="active">🏠<span>Pot</span></button>
+<button data-screen="leden">👥<span>Leden</span></button>
+<button data-screen="overzicht">🧾<span>Overzicht</span></button>
+<button data-screen="nieuw">＋<span>Nieuwe pot</span></button>
+<button data-screen="afsluiten">✓<span>Afsluiten</span></button>
+</nav>
+</div>
+<script>const state={name:"Avondje weg",amount:75,mode:"all",members:[{name:"Marco",paid:true},{name:"Jan",paid:true},{name:"Lisa",paid:false},{name:"Peter",paid:true}],payments:[]};
+
+const euro=n=>new Intl.NumberFormat("nl-NL",{style:"currency",currency:"EUR"}).format(n);
+const deposited=()=>state.members.filter(m=>m.paid).length*state.amount;
+const spent=()=>state.payments.reduce((s,p)=>s+p.amount,0);
+const remaining=()=>Math.max(0,deposited()-spent());
+function render(){
+ document.querySelector("#groupName").textContent=state.name;
+ document.querySelector("#balance").textContent=euro(remaining());
+ document.querySelector("#paidCount").textContent=`${state.members.filter(m=>m.paid).length}/${state.members.length} betaald`;
+ document.querySelector("#members").innerHTML=state.members.map(m=>`<div class="person row"><span>${m.name}</span><span class="status ${m.paid?"":"wait"}">${m.paid?"Betaald":"Openstaand"}</span></div>`).join("");
+ const ready=state.members.length>0&&state.members.every(m=>m.paid);
+ document.querySelector("#lock").style.display=ready?"none":"block";
+ document.querySelector("#payBtn").disabled=!ready;
+ document.querySelector("#payBtn").style.opacity=ready?"1":".45";
+ document.querySelector("#memberList").innerHTML=state.members.map(m=>`<div class="person row"><span>${m.name}</span><span>${m.paid?euro(state.amount):"Nog niet betaald"}</span></div>`).join("");
+ document.querySelector("#payments").innerHTML=state.payments.length?state.payments.map(p=>`<div class="person row"><span><b>${p.who}</b><br><small>${p.what}</small></span><b>${euro(p.amount)}</b></div>`).join(""):"<span class='muted'>Nog geen betalingen.</span>";
+ const each=state.members.length?remaining()/state.members.length:0;
+ document.querySelector("#refunds").innerHTML=`<b>Resterend: ${euro(remaining())}</b><br><br>`+state.members.map(m=>`${m.name}: <b>${euro(each)}</b>`).join("<br>");
+}
+function show(id){document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));document.getElementById(id).classList.add("active");document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("active",b.dataset.screen===id));render();scrollTo(0,0)}
+document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>show(b.dataset.screen));
+
+document.querySelector("#createBtn").onclick=()=>{
+ const names=document.querySelector("#membersInput").value.split(",").map(x=>x.trim()).filter(Boolean);
+ if(!names.length){alert("Voer deelnemers in.");return}
+ state.name=document.querySelector("#nameInput").value.trim()||"Nieuwe groep";
+ state.amount=Number(document.querySelector("#amountInput").value)||75;
+ state.mode=document.querySelector("#modeInput").value;
+ state.members=names.map((name,i)=>({name,paid:i===0}));
+ state.payments=[];show("pot");
+};
+
+document.querySelector("#inviteBtn").onclick=()=>{
+ const link=location.href.split("#")[0]+"?groep="+encodeURIComponent(state.name);
+ const text=`Doe mee met de groepspot "${state.name}": ${link}`;
+ location.href="https://wa.me/?text="+encodeURIComponent(text);
+};
+
+document.querySelector("#payBtn").onclick=()=>{
+ if(state.members.some(m=>!m.paid)){alert("Nog niet iedereen heeft gestort.");return}
+ const amount=Number(prompt("Bedrag van de betaling (€):","25"));
+ if(!amount||amount>remaining()){alert("Ongeldig bedrag.");return}
+ const what=prompt("Waarvoor?","Horeca")||"Betaling";
+ const who=state.mode==="one"?state.members[0].name:prompt("Wie betaalt?",state.members[0].name)||state.members[0].name;
+ state.payments.push({amount,what,who});render();show("overzicht");
+};
+
+document.querySelector("#closeBtn").onclick=()=>{
+ alert("Prototype: de terugbetalingen zijn berekend. In de echte versie koppelen we hier de daadwerkelijke uitbetalingen.");
+ render();
+};
+render();</script>
+</body>
+</html>
