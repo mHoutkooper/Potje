@@ -269,10 +269,13 @@ async function removeMember(id){
 }
 async function togglePaid(id,old){
   if(old)return;
-  const amount=roundAmount();
+  const amount=Number(roundAmount().toFixed(2));
   if(!amount)return alert("Er is geen stortingsbedrag ingesteld.");
   const m=members.find(x=>x.id===id);
   if(!m)return;
+
+  // Alleen het bedrag van de HUIDIGE ronde wordt toegevoegd.
+  // Het eerdere totaal van deze deelnemer blijft behouden.
   const newTotal=(Number(m.paid_amount||0)+amount).toFixed(2);
   const {error}=await sb.from("members").update({paid:true,paid_amount:Number(newTotal)}).eq("id",id);
   if(error)alert("Storting registreren mislukt: "+error.message);
@@ -292,6 +295,11 @@ async function requestTopUp(){
     deposit_round:nextRound
   }).eq("id",pot.id);
   if(pe)return alert("Bijstorten instellen mislukt: "+pe.message);
+
+  // Ook lokaal meteen de nieuwe stortingsronde gebruiken.
+  pot.round_amount_per_person=perPerson;
+  pot.deposit_round=nextRound;
+
   const {error:me}=await sb.from("members").update({paid:false}).eq("pot_id",pot.id);
   if(me)return alert("Nieuwe stortingsronde starten mislukt: "+me.message);
   await loadData();render();
@@ -369,8 +377,17 @@ async function confirmExpense(){
 }
 async function startRequiredTopUp(perPerson){
   const nextRound=Number(pot.deposit_round||1)+1;
-  const {error:pe}=await sb.from("pots").update({round_amount_per_person:Number(perPerson.toFixed(2)),deposit_round:nextRound}).eq("id",pot.id);
+  const newRoundAmount=Number(perPerson.toFixed(2));
+  const {error:pe}=await sb.from("pots").update({
+    round_amount_per_person:newRoundAmount,
+    deposit_round:nextRound
+  }).eq("id",pot.id);
   if(pe)return alert("Bijstorten instellen mislukt: "+pe.message);
+
+  // Voorkomt dat de eerste klik nog het oude oorspronkelijke bedrag gebruikt.
+  pot.round_amount_per_person=newRoundAmount;
+  pot.deposit_round=nextRound;
+
   const {error:me}=await sb.from("members").update({paid:false}).eq("pot_id",pot.id);
   if(me)return alert("Nieuwe stortingsronde starten mislukt: "+me.message);
   closeModal();await loadData();render();
