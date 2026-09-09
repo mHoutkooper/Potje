@@ -110,6 +110,7 @@ async function loadData(){
   members=m.data||[];
   expenses=e.data||[];
   setStatus("Live verbonden");
+  if(pot?.amount_per_person) await syncPotTotal();
 }
 
 function subscribe(){
@@ -125,7 +126,14 @@ async function loadDataAndRender(){await loadData();render()}
 function spent(){return expenses.reduce((s,e)=>s+Number(e.amount),0)}
 function balance(){return Number(pot?.total_amount||0)-spent()}
 function allPaid(){return members.length>0&&members.every(m=>m.paid)}
-function memberAmount(){return members.length?Number(pot.total_amount)/members.length:0}
+function memberAmount(){return Number(pot?.amount_per_person||0)}
+async function syncPotTotal(){
+  if(!pot||!pot.amount_per_person)return;
+  const total=(members.length*Number(pot.amount_per_person)).toFixed(2);
+  if(Number(pot.total_amount)!==Number(total)){
+    await sb.from("pots").update({total_amount:total}).eq("id",pot.id);
+  }
+}
 
 function render(){
   if(!pot)return;
@@ -189,7 +197,9 @@ function renderOverzicht(){
   document.getElementById("app").innerHTML=`
   <section class="card">
     <h2>Overzicht</h2>
-    <div class="row"><span>Ingelegd</span><strong>${euro(pot.total_amount)}</strong></div>
+    <div class="row"><span>Bedrag per persoon</span><strong>${euro(pot.amount_per_person||0)}</strong></div>
+    <div class="row" style="margin-top:10px"><span>Deelnemers</span><strong>${members.length}</strong></div>
+    <div class="row" style="margin-top:10px"><span>Ingelegd</span><strong>${euro(pot.total_amount)}</strong></div>
     <div class="row" style="margin-top:10px"><span>Uitgegeven</span><strong>${euro(spent())}</strong></div>
     <hr>
     <div class="row"><span>Beschikbaar</span><strong>${euro(balance())}</strong></div>
@@ -231,6 +241,8 @@ async function confirmMember(){
   closeModal();await loadData();render();
 }
 async function removeMember(id){
+  const leaving=members.find(m=>m.id===id);
+  if(leaving?.paid)return alert("Een betaald lid kan nog niet worden verwijderd.");
   if(!confirm("Dit lid verwijderen?"))return;
   const {error}=await sb.from("members").delete().eq("id",id);
   if(error)alert("Verwijderen mislukt: "+error.message);
@@ -260,7 +272,8 @@ async function confirmExpense(){
 function newPot(){
   open(`<h2>Nieuwe pot</h2>
     <input id="newName" placeholder="Naam van de pot" value="Avondje weg">
-    <input id="newTotal" type="number" min="0.01" step="0.01" placeholder="Totaalbedrag (€)">
+    <input id="newPerPerson" type="number" min="0.01" step="0.01" placeholder="Bedrag per persoon (€)">
+    <div class="small">Het totaal wordt automatisch berekend op basis van het aantal deelnemers.</div>
     <input id="firstMember" placeholder="Jouw naam">
     <select id="newMode"><option value="everyone">Iedereen kan betalen</option><option value="one">Eén persoon kan betalen</option></select>
     <button class="btn primary full" onclick="confirmNewPot()">Pot aanmaken</button>
@@ -274,13 +287,13 @@ function makeCode(){
 }
 async function confirmNewPot(){
   const name=document.getElementById("newName").value.trim()||"Nieuwe pot";
-  const total=Number(document.getElementById("newTotal").value);
+  const perPerson=Number(document.getElementById("newPerPerson").value);
   const first=document.getElementById("firstMember").value.trim();
   const mode=document.getElementById("newMode").value;
-  if(!total||total<=0)return alert("Vul het totaalbedrag in.");
+  if(!perPerson||perPerson<=0)return alert("Vul het bedrag per persoon in.");
   if(!first)return alert("Vul jouw naam in.");
   const code=makeCode();
-  const {data:p,error}=await sb.from("pots").insert({name,total_amount:total,mode,invite_code:code}).select().single();
+  const {data:p,error}=await sb.from("pots").insert({name,total_amount:perPerson,amount_per_person:perPerson,mode,invite_code:code}).select().single();
   if(error)return alert("Pot aanmaken mislukt: "+error.message);
   const {data:m,error:me}=await sb.from("members").insert({pot_id:p.id,name:first,paid:false}).select().single();
   if(me)return alert("Pot is aangemaakt, maar lid toevoegen mislukte: "+me.message);
