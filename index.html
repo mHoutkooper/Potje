@@ -138,9 +138,11 @@ function memberAmount(){return Number(pot?.amount_per_person||0)}
 async function syncPotTotal(){
   if(!pot||!pot.amount_per_person)return;
   const total=(members.length*Number(pot.amount_per_person)).toFixed(2);
-  if(Number(pot.total_amount)!==Number(total)){
-    await sb.from("pots").update({total_amount:total}).eq("id",pot.id);
-  }
+  // Update ook de lokale waarde direct. Anders blijft het scherm tijdelijk
+  // het oude totaal tonen totdat Realtime toevallig een wijziging terugstuurt.
+  pot.total_amount=Number(total);
+  const {error}=await sb.from("pots").update({total_amount:Number(total)}).eq("id",pot.id);
+  if(error) console.warn("Totaal bijwerken mislukt:",error.message);
 }
 
 function render(){
