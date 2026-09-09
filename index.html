@@ -109,6 +109,14 @@ async function loadData(){
   ]);
   members=m.data||[];
   expenses=e.data||[];
+
+  // Een opgeslagen lid-ID kan van een andere pot zijn.
+  // Alleen als het ID bij deze pot hoort, mag de gebruiker direct verder.
+  if(currentMemberId && !members.some(m => m.id === currentMemberId)){
+    currentMemberId = null;
+    localStorage.removeItem("potje-member-id");
+  }
+
   setStatus("Live verbonden");
   if(pot?.amount_per_person) await syncPotTotal();
 }
@@ -307,11 +315,16 @@ async function confirmNewPot(){
     <button class="btn secondary full" style="margin-top:8px" onclick="closeModal()">Verder</button></div>`);
 }
 async function maybeJoin(){
-  if(!pot||currentMemberId)return;
-  open(`<h2>Meedoen met "${esc(pot.name)}"</h2>
-    <p>Vul je naam in om aan deze pot deel te nemen.</p>
-    <input id="joinName" placeholder="Jouw naam">
-    <button class="btn primary full" onclick="joinPot()">Meedoen</button>`);
+  if(!pot)return;
+
+  // Nieuwe bezoeker: eerst expliciet laten deelnemen.
+  if(!currentMemberId){
+    open(`<h2>Meedoen met "${esc(pot.name)}"</h2>
+      <p>Je bent uitgenodigd voor deze groepspot.</p>
+      <p><strong>Vul je naam in om deel te nemen.</strong></p>
+      <input id="joinName" placeholder="Jouw naam" autocomplete="name">
+      <button class="btn primary full" onclick="joinPot()">Meedoen</button>`);
+  }
 }
 async function joinPot(){
   const n=document.getElementById("joinName").value.trim();
