@@ -1,109 +1,245 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="nl">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#111">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#111111">
 <title>Potje</title>
-<style>*{box-sizing:border-box}body{margin:0;background:#f2f2f7;color:#111;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.app{max-width:430px;margin:auto;min-height:100vh;background:#fff;padding-bottom:90px}header{background:#111;color:#fff;padding:30px 20px 24px;border-radius:0 0 24px 24px}.eyebrow{font-size:12px;color:#aaa;font-weight:700;letter-spacing:1px}h1{font-size:25px;margin:5px 0}.balance{font-size:42px;font-weight:800;margin:12px 0 0}.sub,.muted{color:#777}.sub{color:#aaa;font-size:14px}main{padding:20px}.screen{display:none}.screen.active{display:block}h2{margin:0 0 5px}.card{background:#f7f7f9;border-radius:18px;padding:16px;margin:16px 0}.row{display:flex;justify-content:space-between;align-items:center;gap:12px}.person{padding:13px 0;border-bottom:1px solid #ddd}.person:last-child{border-bottom:0}.status{font-size:12px;padding:5px 9px;border-radius:10px;background:#dff7e7;color:#16733a}.wait{background:#fff0cc;color:#805d00}.notice{background:#fff3cd;padding:13px;border-radius:14px;margin:15px 0}.primary{width:100%;border:0;border-radius:14px;background:#111;color:#fff;padding:15px;font-size:16px;font-weight:700}input,select{width:100%;padding:14px;margin:7px 0 15px;border:1px solid #ddd;border-radius:12px;font-size:16px}label{font-weight:600;font-size:14px}nav{position:fixed;bottom:0;left:0;right:0;max-width:430px;margin:auto;background:#fff;border-top:1px solid #ddd;display:flex;justify-content:space-around;padding:8px 3px calc(8px + env(safe-area-inset-bottom));z-index:5}nav button{border:0;background:none;color:#777;font-size:11px;padding:5px}nav button.active{color:#111;font-weight:700}nav span{display:block;margin-top:3px}</style>
-<link rel="manifest" href="manifest.json">
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f2f2f7;color:#111}
+button,input{font:inherit}
+header{background:#111;color:#fff;padding:42px 22px 34px;border-radius:0 0 34px 34px}
+.kicker{font-size:14px;font-weight:800;letter-spacing:2px;color:#aaa}
+h1{font-size:40px;line-height:1.05;margin:12px 0 20px}
+.balance{font-size:52px;font-weight:800;letter-spacing:-2px}
+.sub{font-size:18px;color:#aaa;margin-top:4px}
+main{padding:22px 16px 105px;max-width:680px;margin:auto}
+.card{background:#fff;border-radius:24px;padding:20px;margin-bottom:16px;box-shadow:0 1px 3px #0000000d}
+.row{display:flex;align-items:center;justify-content:space-between;gap:12px}
+h2{font-size:22px;margin:0 0 16px}
+h3{font-size:18px;margin:0 0 12px}
+.member{padding:14px 0;border-bottom:1px solid #ddd}
+.member:last-child{border-bottom:0}
+.name{font-size:18px}
+.amount{font-size:14px;color:#777;margin-top:3px}
+.badge{padding:8px 12px;border-radius:18px;font-size:14px;font-weight:600}
+.paid{background:#def5e5;color:#28753e}
+.open{background:#fff0c9;color:#805e0b}
+.btn{border:0;border-radius:16px;padding:13px 16px;font-weight:700;cursor:pointer}
+.primary{background:#111;color:#fff}
+.secondary{background:#eee;color:#111}
+.danger{background:#ffe3e3;color:#9b2222}
+.full{width:100%;font-size:18px;padding:18px}
+.disabled{opacity:.45;cursor:not-allowed}
+.notice{padding:16px;border-radius:18px;background:#fff1c9;margin-bottom:16px}
+.success{background:#e4f7e9}
+input{width:100%;padding:14px 15px;border:1px solid #ccc;border-radius:14px;background:#fff;margin-bottom:10px}
+.formgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.formgrid .fullcol{grid-column:1/-1}
+.small{font-size:13px;color:#777}
+.expense{padding:12px 0;border-bottom:1px solid #eee}
+.expense:last-child{border-bottom:0}
+nav{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #ddd;display:flex;justify-content:space-around;padding:8px 4px calc(8px + env(safe-area-inset-bottom));z-index:10}
+nav button{background:none;border:0;color:#777;font-size:12px;padding:6px;min-width:64px}
+nav b{display:block;font-size:21px;margin-bottom:2px}
+nav .active{color:#111;font-weight:700}
+.modal{position:fixed;inset:0;background:#0007;display:none;align-items:flex-end;z-index:20}
+.modal.show{display:flex}
+.sheet{background:#fff;width:100%;border-radius:26px 26px 0 0;padding:22px;max-height:90vh;overflow:auto}
+.sheet h2{margin-top:0}
+.center{text-align:center}
+hr{border:0;border-top:1px solid #eee;margin:18px 0}
+@media(min-width:700px){.modal{align-items:center}.sheet{max-width:560px;border-radius:26px}}
+</style>
 </head>
 <body>
-<div class="app">
-<header><div class="eyebrow">GROEPSPOT</div><h1 id="groupName">Avondje weg</h1><div id="balance" class="balance">€0,00</div><div class="sub">beschikbaar in de pot</div></header>
-<main>
-<section id="pot" class="screen active">
-<div class="card"><div class="row"><b>Deelnemers</b><span id="paidCount"></span></div><div id="members"></div></div>
-<div id="lock" class="notice">⏳ Betalen kan zodra iedereen heeft gestort.</div>
-<button id="payBtn" class="primary">BETALEN</button>
-</section>
+<header>
+  <div class="kicker">GROEPSPOT</div>
+  <h1 id="potName">Avondje weg</h1>
+  <div class="balance" id="balance">€ 0,00</div>
+  <div class="sub">beschikbaar in de pot</div>
+</header>
 
-<section id="leden" class="screen">
-<h2>Deelnemers</h2><p class="muted">Nodig mensen uit via WhatsApp.</p>
-<div id="memberList" class="card"></div>
-<button id="inviteBtn" class="primary">Uitnodigen via WhatsApp</button>
-</section>
+<main id="app"></main>
 
-<section id="overzicht" class="screen">
-<h2>Overzicht</h2><p class="muted">Alle betalingen uit de pot.</p>
-<div id="payments" class="card"></div>
-</section>
-
-<section id="nieuw" class="screen">
-<h2>Nieuwe groep</h2>
-<label>Naam van het uitje</label><input id="nameInput" placeholder="Bijv. Weekend Antwerpen">
-<label>Bedrag per persoon</label><input id="amountInput" type="number" min="1" step=".01" value="75">
-<label>Wie mag betalen?</label><select id="modeInput"><option value="all">Iedereen</option><option value="one">Alleen aangewezen persoon</option></select>
-<label>Deelnemers</label><input id="membersInput" placeholder="Marco, Jan, Lisa, Peter">
-<button id="createBtn" class="primary">Groep aanmaken</button>
-</section>
-
-<section id="afsluiten" class="screen">
-<h2>Uitje beëindigen</h2><p class="muted">Het resterende bedrag wordt naar rato verdeeld.</p>
-<div id="refunds" class="card"></div>
-<button id="closeBtn" class="primary">Terugbetaling berekenen</button>
-</section>
-</main>
 <nav>
-<button data-screen="pot" class="active">🏠<span>Pot</span></button>
-<button data-screen="leden">👥<span>Leden</span></button>
-<button data-screen="overzicht">🧾<span>Overzicht</span></button>
-<button data-screen="nieuw">＋<span>Nieuwe pot</span></button>
-<button data-screen="afsluiten">✓<span>Afsluiten</span></button>
+  <button class="active" onclick="showTab('pot',this)"><b>🏠</b>Pot</button>
+  <button onclick="showTab('leden',this)"><b>👥</b>Leden</button>
+  <button onclick="showTab('overzicht',this)"><b>🧾</b>Overzicht</button>
+  <button onclick="newPot()"><b>＋</b>Nieuwe pot</button>
+  <button onclick="afsluiten()"><b>✓</b>Afsluiten</button>
 </nav>
+
+<div class="modal" id="modal">
+ <div class="sheet" id="sheet"></div>
 </div>
-<script>const state={name:"Avondje weg",amount:75,mode:"all",members:[{name:"Marco",paid:true},{name:"Jan",paid:true},{name:"Lisa",paid:false},{name:"Peter",paid:true}],payments:[]};
 
+<script>
+const KEY="potje-v2";
 const euro=n=>new Intl.NumberFormat("nl-NL",{style:"currency",currency:"EUR"}).format(n);
-const deposited=()=>state.members.filter(m=>m.paid).length*state.amount;
-const spent=()=>state.payments.reduce((s,p)=>s+p.amount,0);
-const remaining=()=>Math.max(0,deposited()-spent());
+const empty=()=>({
+ name:"Avondje weg",
+ members:[
+  {name:"Marco",paid:true},
+  {name:"Jan",paid:true},
+  {name:"Lisa",paid:false},
+  {name:"Peter",paid:true}
+ ],
+ total:225,
+ expenses:[]
+});
+let data=JSON.parse(localStorage.getItem(KEY)||"null")||empty();
+
+function save(){localStorage.setItem(KEY,JSON.stringify(data));render()}
+function paidCount(){return data.members.filter(m=>m.paid).length}
+function memberAmount(){return data.members.length?data.total/data.members.length:0}
+function spent(){return data.expenses.reduce((s,e)=>s+Number(e.amount),0)}
+function balance(){return data.total-spent()}
+function allPaid(){return data.members.length>0&&data.members.every(m=>m.paid)}
+
 function render(){
- document.querySelector("#groupName").textContent=state.name;
- document.querySelector("#balance").textContent=euro(remaining());
- document.querySelector("#paidCount").textContent=`${state.members.filter(m=>m.paid).length}/${state.members.length} betaald`;
- document.querySelector("#members").innerHTML=state.members.map(m=>`<div class="person row"><span>${m.name}</span><span class="status ${m.paid?"":"wait"}">${m.paid?"Betaald":"Openstaand"}</span></div>`).join("");
- const ready=state.members.length>0&&state.members.every(m=>m.paid);
- document.querySelector("#lock").style.display=ready?"none":"block";
- document.querySelector("#payBtn").disabled=!ready;
- document.querySelector("#payBtn").style.opacity=ready?"1":".45";
- document.querySelector("#memberList").innerHTML=state.members.map(m=>`<div class="person row"><span>${m.name}</span><span>${m.paid?euro(state.amount):"Nog niet betaald"}</span></div>`).join("");
- document.querySelector("#payments").innerHTML=state.payments.length?state.payments.map(p=>`<div class="person row"><span><b>${p.who}</b><br><small>${p.what}</small></span><b>${euro(p.amount)}</b></div>`).join(""):"<span class='muted'>Nog geen betalingen.</span>";
- const each=state.members.length?remaining()/state.members.length:0;
- document.querySelector("#refunds").innerHTML=`<b>Resterend: ${euro(remaining())}</b><br><br>`+state.members.map(m=>`${m.name}: <b>${euro(each)}</b>`).join("<br>");
+ document.getElementById("potName").textContent=data.name;
+ document.getElementById("balance").textContent=euro(balance());
+ renderPot();
 }
-function show(id){document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));document.getElementById(id).classList.add("active");document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("active",b.dataset.screen===id));render();scrollTo(0,0)}
-document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>show(b.dataset.screen));
 
-document.querySelector("#createBtn").onclick=()=>{
- const names=document.querySelector("#membersInput").value.split(",").map(x=>x.trim()).filter(Boolean);
- if(!names.length){alert("Voer deelnemers in.");return}
- state.name=document.querySelector("#nameInput").value.trim()||"Nieuwe groep";
- state.amount=Number(document.querySelector("#amountInput").value)||75;
- state.mode=document.querySelector("#modeInput").value;
- state.members=names.map((name,i)=>({name,paid:i===0}));
- state.payments=[];show("pot");
-};
+function renderPot(){
+ const app=document.getElementById("app");
+ app.innerHTML=`
+ <section class="card">
+  <div class="row"><h2>Deelnemers</h2><span>${paidCount()}/${data.members.length} betaald</span></div>
+  ${data.members.map((m,i)=>`
+   <div class="member row">
+    <div><div class="name">${esc(m.name)}</div><div class="amount">${euro(memberAmount())}</div></div>
+    <button class="badge ${m.paid?'paid':'open'}" onclick="togglePaid(${i})">${m.paid?'Betaald':'Openstaand'}</button>
+   </div>`).join("")}
+ </section>
+ ${allPaid()
+ ? `<div class="notice success">✅ Iedereen heeft gestort. Betalen uit de pot is mogelijk.</div>`
+ : `<div class="notice">⏳ Betalen kan zodra iedereen heeft gestort.</div>`}
+ <button class="btn primary full ${allPaid()&&balance()>0?'':'disabled'}" ${allPaid()&&balance()>0?'':'disabled'} onclick="addExpense()">BETALEN</button>
+ <section class="card">
+  <div class="row"><h2>Snelle acties</h2></div>
+  <div class="formgrid">
+   <button class="btn secondary" onclick="addMember()">＋ Lid toevoegen</button>
+   <button class="btn secondary" onclick="addExpense()">＋ Uitgave</button>
+  </div>
+ </section>`;
+}
 
-document.querySelector("#inviteBtn").onclick=()=>{
- const link=location.href.split("#")[0]+"?groep="+encodeURIComponent(state.name);
- const text=`Doe mee met de groepspot "${state.name}": ${link}`;
+function renderLeden(){
+ document.getElementById("app").innerHTML=`
+ <section class="card">
+  <h2>Leden</h2>
+  ${data.members.map((m,i)=>`<div class="member row">
+   <div><div class="name">${esc(m.name)}</div><div class="amount">${m.paid?'Heeft gestort':'Moet nog storten'}</div></div>
+   <button class="btn danger" onclick="removeMember(${i})">Verwijder</button>
+  </div>`).join("")}
+  <button class="btn primary full" onclick="addMember()">＋ Lid toevoegen</button>
+ </section>`;
+}
+
+function renderOverzicht(){
+ document.getElementById("app").innerHTML=`
+ <section class="card">
+  <h2>Overzicht</h2>
+  <div class="row"><span>Ingelegd</span><strong>${euro(data.total)}</strong></div>
+  <div class="row" style="margin-top:10px"><span>Uitgegeven</span><strong>${euro(spent())}</strong></div>
+  <hr>
+  <div class="row"><span>Beschikbaar</span><strong>${euro(balance())}</strong></div>
+ </section>
+ <section class="card">
+  <h2>Uitgaven</h2>
+  ${data.expenses.length?data.expenses.map((e,i)=>`<div class="expense row">
+    <div><strong>${esc(e.description)}</strong><div class="small">${new Date(e.date).toLocaleString("nl-NL")}</div></div>
+    <strong>${euro(e.amount)}</strong>
+  </div>`).join(""):'<div class="small">Nog geen uitgaven.</div>'}
+ </section>
+ <section class="card">
+  <h2>Delen</h2>
+  <p class="small">Stuur de pot via WhatsApp naar de groep.</p>
+  <button class="btn primary full" onclick="shareWhatsApp()">💬 Deel via WhatsApp</button>
+ </section>`;
+}
+
+function showTab(tab,btn){
+ document.querySelectorAll("nav button").forEach(b=>b.classList.remove("active"));
+ btn.classList.add("active");
+ if(tab==="pot")renderPot();
+ if(tab==="leden")renderLeden();
+ if(tab==="overzicht")renderOverzicht();
+}
+
+function addMember(){
+ open(`<h2>Lid toevoegen</h2>
+ <input id="memberName" placeholder="Naam">
+ <button class="btn primary full" onclick="confirmMember()">Toevoegen</button>
+ <button class="btn secondary full" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
+}
+function confirmMember(){
+ const n=document.getElementById("memberName").value.trim();
+ if(!n)return alert("Vul een naam in.");
+ data.members.push({name:n,paid:false});save();closeModal();
+}
+function removeMember(i){
+ if(!confirm("Dit lid verwijderen?"))return;
+ data.members.splice(i,1);save();
+}
+function togglePaid(i){
+ data.members[i].paid=!data.members[i].paid;save();
+}
+function addExpense(){
+ if(!allPaid())return;
+ if(balance()<=0)return alert("Er staat niets meer in de pot.");
+ open(`<h2>Betaling uit de pot</h2>
+ <input id="expenseDesc" placeholder="Waarvoor betaal je?">
+ <input id="expenseAmount" type="number" min="0.01" step="0.01" placeholder="Bedrag (€)">
+ <button class="btn primary full" onclick="confirmExpense()">Betaling toevoegen</button>
+ <button class="btn secondary full" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
+}
+function confirmExpense(){
+ const d=document.getElementById("expenseDesc").value.trim();
+ const a=Number(document.getElementById("expenseAmount").value);
+ if(!d||!a||a<=0)return alert("Vul een omschrijving en bedrag in.");
+ if(a>balance())return alert("Dit bedrag is hoger dan het beschikbare saldo.");
+ data.expenses.push({description:d,amount:a,date:new Date().toISOString()});
+ save();closeModal();
+}
+function newPot(){
+ open(`<h2>Nieuwe pot</h2>
+ <input id="newName" placeholder="Naam van de pot" value="Avondje weg">
+ <input id="newTotal" type="number" min="0.01" step="0.01" placeholder="Totaalbedrag (€)">
+ <input id="firstMember" placeholder="Jouw naam">
+ <button class="btn primary full" onclick="confirmNewPot()">Pot aanmaken</button>
+ <button class="btn secondary full" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
+}
+function confirmNewPot(){
+ const name=document.getElementById("newName").value.trim()||"Nieuwe pot";
+ const total=Number(document.getElementById("newTotal").value);
+ const first=document.getElementById("firstMember").value.trim()||"Ik";
+ if(!total||total<=0)return alert("Vul het totaalbedrag in.");
+ data={name,total,members:[{name:first,paid:false}],expenses:[]};
+ save();closeModal();renderPot();
+}
+function afsluiten(){
+ if(!confirm("Pot afsluiten en het resterende bedrag verdelen?"))return;
+ const b=balance(), n=data.members.length;
+ const per=n?b/n:0;
+ open(`<div class="center"><h2>Pot afgesloten</h2>
+ <p>Er is nog <strong>${euro(b)}</strong> over.</p>
+ <p>Bij ${n} deelnemers is dat gemiddeld <strong>${euro(per)}</strong> per persoon.</p>
+ <button class="btn primary full" onclick="closeModal()">Klaar</button></div>`);
+}
+function shareWhatsApp(){
+ const url=location.href;
+ const text=`Potje "${data.name}" – saldo ${euro(balance())}. Open de pot: ${url}`;
  location.href="https://wa.me/?text="+encodeURIComponent(text);
-};
-
-document.querySelector("#payBtn").onclick=()=>{
- if(state.members.some(m=>!m.paid)){alert("Nog niet iedereen heeft gestort.");return}
- const amount=Number(prompt("Bedrag van de betaling (€):","25"));
- if(!amount||amount>remaining()){alert("Ongeldig bedrag.");return}
- const what=prompt("Waarvoor?","Horeca")||"Betaling";
- const who=state.mode==="one"?state.members[0].name:prompt("Wie betaalt?",state.members[0].name)||state.members[0].name;
- state.payments.push({amount,what,who});render();show("overzicht");
-};
-
-document.querySelector("#closeBtn").onclick=()=>{
- alert("Prototype: de terugbetalingen zijn berekend. In de echte versie koppelen we hier de daadwerkelijke uitbetalingen.");
- render();
-};
-render();</script>
+}
+function open(html){document.getElementById("sheet").innerHTML=html;document.getElementById("modal").classList.add("show")}
+function closeModal(){document.getElementById("modal").classList.remove("show")}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]))}
+render();
+</script>
 </body>
 </html>
