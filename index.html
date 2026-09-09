@@ -421,9 +421,19 @@ async function maybeJoin(){
       <p>Je bent uitgenodigd voor deze groepspot.</p>
       <p><strong>Vul je naam in om deel te nemen.</strong></p>
       <input id="joinName" placeholder="Jouw naam" autocomplete="name">
-      <button class="btn primary full" onclick="joinPot()">Meedoen</button>`);
+      <button class="btn primary full" onclick="joinPot()">Meedoen</button>
+      <button class="btn full" style="margin-top:10px;background:#f1f1f1;color:#111;" onclick="declineInvite()">Niet meedoen</button>`);
   }
 }
+function declineInvite(){
+  closeModal();
+  try{
+    const base = potjeBaseUrl();
+    history.replaceState({}, "", base);
+  }catch(e){}
+  alert("Je hebt ervoor gekozen niet mee te doen met deze groepspot.");
+}
+
 async function joinPot(){
   const n=document.getElementById("joinName").value.trim();
   if(!n)return alert("Vul je naam in.");
