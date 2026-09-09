@@ -32,7 +32,7 @@ h2{font-size:21px;margin:0 0 14px}
 .secondary{background:#eee;color:#111}
 .danger{background:#ffe3e3;color:#9b2222}
 .full{width:100%;font-size:17px;padding:16px}
-.disabled{opacity:.45;cursor:not-allowed}
+.disabled{opacity:.45;cursor:not-allowed}.badge:disabled{opacity:1;cursor:default}
 .notice{padding:15px;border-radius:17px;background:#fff1c9;margin-bottom:15px}
 .success{background:#e4f7e9}
 .formgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
@@ -132,14 +132,15 @@ function subscribe(){
 async function loadDataAndRender(){await loadData();render()}
 
 function spent(){return expenses.reduce((s,e)=>s+Number(e.amount),0)}
-function balance(){return Number(pot?.total_amount||0)-spent()}
+function contributed(){return members.reduce((s,m)=>s+Number(m.paid_amount||0),0)}
+function balance(){return contributed()-spent()}
 function allPaid(){return members.length>0&&members.every(m=>m.paid)}
 function memberAmount(){return Number(pot?.amount_per_person||0)}
+function roundAmount(){return Number(pot?.round_amount_per_person||pot?.amount_per_person||0)}
+function targetTotal(){return members.length*memberAmount()}
 async function syncPotTotal(){
   if(!pot||!pot.amount_per_person)return;
   const total=(members.length*Number(pot.amount_per_person)).toFixed(2);
-  // Update ook de lokale waarde direct. Anders blijft het scherm tijdelijk
-  // het oude totaal tonen totdat Realtime toevallig een wijziging terugstuurt.
   pot.total_amount=Number(total);
   const {error}=await sb.from("pots").update({total_amount:Number(total)}).eq("id",pot.id);
   if(error) console.warn("Totaal bijwerken mislukt:",error.message);
@@ -172,19 +173,23 @@ function renderPot(){
     <div class="row"><h2>Deelnemers</h2><span>${members.filter(m=>m.paid).length}/${members.length} betaald</span></div>
     ${members.map(m=>`
       <div class="member row">
-        <div><div class="name">${esc(m.name)} ${m.id===currentMemberId?'(jij)':''}</div><div class="amount">${euro(memberAmount())}</div></div>
-        <button class="badge ${m.paid?'paid':'open'}" onclick="togglePaid('${m.id}',${m.paid})">${m.paid?'Betaald':'Openstaand'}</button>
+        <div><div class="name">${esc(m.name)} ${m.id===currentMemberId?'(jij)':''}</div><div class="amount">Deze ronde: ${euro(roundAmount())} · Totaal gestort: ${euro(m.paid_amount||0)}</div></div>
+        <button class="badge ${m.paid?'paid':'open'}" ${m.paid?'disabled':''} onclick="togglePaid('${m.id}',${m.paid})">${m.paid?'Betaald':'Storten'}</button>
       </div>`).join("")}
   </section>
   ${allPaid()
-    ? `<div class="notice success">✅ Iedereen heeft gestort. Betalen uit de pot is mogelijk.</div>`
+    ? (balance()>0
+      ? `<div class="notice success">✅ Iedereen heeft gestort. Er is ${euro(balance())} beschikbaar.</div>`
+      : `<div class="notice">⚠️ De pot is leeg. Als er nog een betaling moet komen, kun je bijstorten.</div>`)
     : `<div class="notice">⏳ Betalen kan zodra iedereen heeft gestort.</div>`}
   <button class="btn primary full ${allPaid()&&balance()>0?'':'disabled'}" ${allPaid()&&balance()>0?'':'disabled'} onclick="addExpense()">BETALEN</button>
   <section class="card">
     <h2>Snelle acties</h2>
     <div class="formgrid">
       <button class="btn secondary" onclick="addMember()">＋ Lid toevoegen</button>
+      <button class="btn secondary" onclick="requestTopUp()">＋ Bijstorten</button>
       <button class="btn secondary" onclick="shareWhatsApp()">💬 Delen</button>
+      <button class="btn secondary" onclick="finishPot()">🏁 Pot afronden</button>
     </div>
   </section>`;
 }
@@ -196,7 +201,7 @@ function renderLeden(){
     <p class="small">Iedereen ziet wijzigingen direct. Deel de pot via WhatsApp.</p>
     ${members.map(m=>`
       <div class="member row">
-        <div><div class="name">${esc(m.name)} ${m.id===currentMemberId?'(jij)':''}</div><div class="amount">${m.paid?'Heeft gestort':'Moet nog storten'}</div></div>
+        <div><div class="name">${esc(m.name)} ${m.id===currentMemberId?'(jij)':''}</div><div class="amount">${m.paid?'Heeft gestort':'Moet nog storten'} · totaal ${euro(m.paid_amount||0)}</div></div>
         <button class="btn danger" onclick="removeMember('${m.id}')">Verwijder</button>
       </div>`).join("")}
     <button class="btn primary full" onclick="addMember()">＋ Lid toevoegen</button>
@@ -209,7 +214,8 @@ function renderOverzicht(){
     <h2>Overzicht</h2>
     <div class="row"><span>Bedrag per persoon</span><strong>${euro(pot.amount_per_person||0)}</strong></div>
     <div class="row" style="margin-top:10px"><span>Deelnemers</span><strong>${members.length}</strong></div>
-    <div class="row" style="margin-top:10px"><span>Ingelegd</span><strong>${euro(pot.total_amount)}</strong></div>
+    <div class="row" style="margin-top:10px"><span>Doelbedrag</span><strong>${euro(targetTotal())}</strong></div>
+    <div class="row" style="margin-top:10px"><span>Werkelijk ingelegd</span><strong>${euro(contributed())}</strong></div>
     <div class="row" style="margin-top:10px"><span>Uitgegeven</span><strong>${euro(spent())}</strong></div>
     <hr>
     <div class="row"><span>Beschikbaar</span><strong>${euro(balance())}</strong></div>
@@ -245,7 +251,7 @@ async function addMember(){
 async function confirmMember(){
   const n=document.getElementById("memberName").value.trim();
   if(!n)return alert("Vul een naam in.");
-  const {data,error}=await sb.from("members").insert({pot_id:pot.id,name:n,paid:false}).select().single();
+  const {data,error}=await sb.from("members").insert({pot_id:pot.id,name:n,paid:false,paid_amount:0}).select().single();
   if(error)return alert("Toevoegen mislukt: "+error.message);
   if(!currentMemberId){currentMemberId=data.id;localStorage.setItem("potje-member-id",data.id)}
   closeModal();await loadData();render();
@@ -258,8 +264,58 @@ async function removeMember(id){
   if(error)alert("Verwijderen mislukt: "+error.message);
 }
 async function togglePaid(id,old){
-  const {error}=await sb.from("members").update({paid:!old}).eq("id",id);
-  if(error)alert("Wijzigen mislukt: "+error.message);
+  if(old)return;
+  const amount=roundAmount();
+  if(!amount)return alert("Er is geen stortingsbedrag ingesteld.");
+  const m=members.find(x=>x.id===id);
+  if(!m)return;
+  const newTotal=(Number(m.paid_amount||0)+amount).toFixed(2);
+  const {error}=await sb.from("members").update({paid:true,paid_amount:Number(newTotal)}).eq("id",id);
+  if(error)alert("Storting registreren mislukt: "+error.message);
+}
+async function requestTopUp(){
+  if(!members.length)return;
+  const needed=prompt("Hoeveel wil je extra in de pot hebben?\nHet bedrag wordt eerlijk over alle deelnemers verdeeld.", "50");
+  if(needed===null)return;
+  const totalNeeded=Number(String(needed).replace(",","."));
+  if(!totalNeeded||totalNeeded<=0)return alert("Vul een geldig bedrag in.");
+  const perPerson=Math.ceil((totalNeeded/members.length)*100)/100;
+  const actualTotal=Number((perPerson*members.length).toFixed(2));
+  const nextRound=Number(pot.deposit_round||1)+1;
+  const {error:pe}=await sb.from("pots").update({
+    round_amount_per_person:perPerson,
+    deposit_round:nextRound
+  }).eq("id",pot.id);
+  if(pe)return alert("Bijstorten instellen mislukt: "+pe.message);
+  const {error:me}=await sb.from("members").update({paid:false}).eq("pot_id",pot.id);
+  if(me)return alert("Nieuwe stortingsronde starten mislukt: "+me.message);
+  await loadData();render();
+  alert("Nieuwe stortingsronde gestart. Iedereen stort "+euro(perPerson)+". Er komt "+euro(actualTotal)+" bij in de pot.");
+}
+
+function finishPot(){
+  const remaining=balance();
+  if(remaining<0)return alert("De pot staat negatief. Eerst bijstorten.");
+  if(remaining===0)return alert("De pot is leeg. Er is niets terug te betalen.");
+  const perPerson=remaining/members.length;
+  open(`<div class="center"><h2>Pot afronden 🎉</h2>
+    <p>Er staat nog <strong>${euro(remaining)}</strong> in de pot.</p>
+    <p>Bij ${members.length} deelnemers krijgt iedereen gemiddeld <strong>${euro(perPerson)}</strong> terug.</p>
+    <div class="notice success">Terugbetaling: ${euro(remaining)} totaal</div>
+    <button class="btn primary full" onclick="confirmFinish()">Terugbetaling bevestigen</button>
+    <button class="btn secondary full" style="margin-top:8px" onclick="closeModal()">Annuleren</button></div>`);
+}
+async function confirmFinish(){
+  const remaining=balance();
+  if(remaining<0)return alert("De pot staat negatief.");
+  const each=Math.floor((remaining/members.length)*100)/100;
+  const distributed=Number((each*members.length).toFixed(2));
+  const rest=Number((remaining-distributed).toFixed(2));
+  const lines=members.map((m,i)=>`${esc(m.name)}: ${euro(each+(i===0?rest:0))}`).join("<br>");
+  open(`<div class="center"><h2>Terugbetaling klaar</h2>
+    <p>${lines}</p>
+    <p class="small">Rondingsverschil van maximaal €0,01 wordt aan één deelnemer toegevoegd.</p>
+    <button class="btn secondary full" onclick="closeModal()">Sluiten</button></div>`);
 }
 async function addExpense(){
   if(!allPaid())return;
@@ -274,9 +330,27 @@ async function confirmExpense(){
   const d=document.getElementById("expenseDesc").value.trim();
   const a=Number(document.getElementById("expenseAmount").value);
   if(!d||!a||a<=0)return alert("Vul een omschrijving en bedrag in.");
-  if(a>balance())return alert("Dit bedrag is hoger dan het beschikbare saldo.");
+  if(a>balance()){
+    const shortfall=Number((a-balance()).toFixed(2));
+    closeModal();
+    const perPerson=Math.ceil((shortfall/members.length)*100)/100;
+    open(`<h2>Onvoldoende saldo</h2>
+      <p>Voor deze betaling is <strong>${euro(shortfall)}</strong> extra nodig.</p>
+      <p>Dat betekent <strong>${euro(perPerson)}</strong> bijstorten per persoon.</p>
+      <button class="btn primary full" onclick="startRequiredTopUp(${perPerson})">Bijstorten starten</button>
+      <button class="btn secondary full" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
+    return;
+  }
   const {error}=await sb.from("expenses").insert({pot_id:pot.id,description:d,amount:a,paid_by_member_id:currentMemberId||null});
   if(error)return alert("Betaling toevoegen mislukt: "+error.message);
+  closeModal();await loadData();render();
+}
+async function startRequiredTopUp(perPerson){
+  const nextRound=Number(pot.deposit_round||1)+1;
+  const {error:pe}=await sb.from("pots").update({round_amount_per_person:Number(perPerson.toFixed(2)),deposit_round:nextRound}).eq("id",pot.id);
+  if(pe)return alert("Bijstorten instellen mislukt: "+pe.message);
+  const {error:me}=await sb.from("members").update({paid:false}).eq("pot_id",pot.id);
+  if(me)return alert("Nieuwe stortingsronde starten mislukt: "+me.message);
   closeModal();await loadData();render();
 }
 function newPot(){
@@ -303,9 +377,9 @@ async function confirmNewPot(){
   if(!perPerson||perPerson<=0)return alert("Vul het bedrag per persoon in.");
   if(!first)return alert("Vul jouw naam in.");
   const code=makeCode();
-  const {data:p,error}=await sb.from("pots").insert({name,total_amount:perPerson,amount_per_person:perPerson,mode,invite_code:code}).select().single();
+  const {data:p,error}=await sb.from("pots").insert({name,total_amount:perPerson,amount_per_person:perPerson,round_amount_per_person:perPerson,deposit_round:1,mode,invite_code:code}).select().single();
   if(error)return alert("Pot aanmaken mislukt: "+error.message);
-  const {data:m,error:me}=await sb.from("members").insert({pot_id:p.id,name:first,paid:false}).select().single();
+  const {data:m,error:me}=await sb.from("members").insert({pot_id:p.id,name:first,paid:false,paid_amount:0}).select().single();
   if(me)return alert("Pot is aangemaakt, maar lid toevoegen mislukte: "+me.message);
   currentMemberId=m.id;localStorage.setItem("potje-member-id",m.id);
   history.replaceState({}, "", potjeBaseUrl()+"?pot="+encodeURIComponent(code));
@@ -331,7 +405,7 @@ async function maybeJoin(){
 async function joinPot(){
   const n=document.getElementById("joinName").value.trim();
   if(!n)return alert("Vul je naam in.");
-  const {data,error}=await sb.from("members").insert({pot_id:pot.id,name:n,paid:false}).select().single();
+  const {data,error}=await sb.from("members").insert({pot_id:pot.id,name:n,paid:false,paid_amount:0}).select().single();
   if(error)return alert("Deelnemen mislukt: "+error.message);
   currentMemberId=data.id;localStorage.setItem("potje-member-id",data.id);
   closeModal();await loadData();render();
