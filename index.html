@@ -204,7 +204,7 @@ function renderOverzicht(){
   </section>
   <section class="card">
     <h2>Uitnodigingslink</h2>
-    <div class="linkbox">${esc(location.href)}</div>
+    <div class="linkbox">${esc(potjeInviteUrl())}</div>
     <button class="btn primary full" style="margin-top:10px" onclick="shareWhatsApp()">💬 Deel via WhatsApp</button>
   </section>`;
 }
@@ -285,11 +285,11 @@ async function confirmNewPot(){
   const {data:m,error:me}=await sb.from("members").insert({pot_id:p.id,name:first,paid:false}).select().single();
   if(me)return alert("Pot is aangemaakt, maar lid toevoegen mislukte: "+me.message);
   currentMemberId=m.id;localStorage.setItem("potje-member-id",m.id);
-  history.replaceState({}, "", location.pathname+"?pot="+encodeURIComponent(code));
+  history.replaceState({}, "", potjeBaseUrl()+"?pot="+encodeURIComponent(code));
   pot=p;closeModal();await loadData();subscribe();render();
   open(`<div class="center"><h2>Pot aangemaakt 🎉</h2>
     <p>Deel deze link met de groep:</p>
-    <div class="linkbox">${esc(location.href)}</div>
+    <div class="linkbox">${esc(potjeInviteUrl())}</div>
     <button class="btn primary full" style="margin-top:12px" onclick="shareWhatsApp()">💬 Deel via WhatsApp</button>
     <button class="btn secondary full" style="margin-top:8px" onclick="closeModal()">Verder</button></div>`);
 }
@@ -308,9 +308,16 @@ async function joinPot(){
   currentMemberId=data.id;localStorage.setItem("potje-member-id",data.id);
   closeModal();await loadData();render();
 }
+function potjeBaseUrl(){
+  return window.location.origin + "/Potje/";
+}
+function potjeInviteUrl(){
+  return potjeBaseUrl() + "?pot=" + encodeURIComponent(pot.invite_code);
+}
 function shareWhatsApp(){
   if(!pot)return newPot();
-  const text=`Potje "${pot.name}" — doe mee via deze link: ${location.href}`;
+  const link=potjeInviteUrl();
+  const text=`Potje "${pot.name}" — doe mee via deze link: ${link}`;
   location.href="https://wa.me/?text="+encodeURIComponent(text);
 }
 loadPot();
